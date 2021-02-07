@@ -1,0 +1,165 @@
+---
+title: "Data 607-Assignment 1"
+output: html_document
+---
+
+#### ***Rathish Parayil Sasidharan***
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Overview
+A Handful Of Cities Are Driving 2016’s Rise In Murders - \
+This article is about rise in murder rate across some of the major cities during the period 2014-2016.
+Also it states that ,in 2016 the rise is more concentrated in a few major cities.\
+We are using 2 data sets for comparison , the 2015 data set provides information about 2014 and 2015 murders across major 
+cities.
+Second data set provides murder information about 2015 and 2016 murders. This is a preliminary data set.\
+Following operations are performed as part of this assignment .
+
+1. Read data from external url
+2. Rename few columns
+3. Summarize the data 
+4. Subset data by columns and rows
+5. Apply data transformation , add new column by deriving value from existing column
+6. Join 2 data frame by primary columns
+7. Plot BAR chart /Grouped BAR chart for data comparison
+
+Please find the link to the article.
+
+[A Handful Of Cities Are Driving 2016’s Rise In Murders](https://fivethirtyeight.com/features/a-handful-of-cities-are-driving-2016s-rise-in-murders/)
+
+## Prerequisites
+Load required packages
+
+```{r message=FALSE}
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(curl)
+
+```
+
+
+
+### Loading data frame 
+Read the 2 data CSV file into data frames
+```{r}
+
+#Read the data from git
+
+murder2016 <- read.csv(curl("https://raw.githubusercontent.com/fivethirtyeight/data/master/murder_2016/murder_2016_prelim.csv"))
+murder2015 <- read.csv(curl("https://raw.githubusercontent.com/fivethirtyeight/data/master/murder_2016/murder_2015_final.csv"))
+
+```
+
+
+## Rename the column header 
+
+```{r}
+
+colnames(murder2015)[3] <- 'murders_2014'
+colnames(murder2015)[4] <- 'murders_2015'
+
+colnames(murder2016)[3] <- 'murders_2015'
+colnames(murder2016)[4] <- 'murders_2016'
+
+
+```
+
+## Display the summary data
+```{r}
+summary(murder2016)
+summary(murder2015)
+mean_2014murder <- mean(murder2015$murders_2014)
+mean_2015murder <- mean(murder2015$murders_2015)
+mean_2016murder <- mean(murder2016$murders_2016)
+
+print(paste("Mean of 2014 murders   ",mean_2014murder))
+print(paste("Mean of 2015 murders  ",mean_2015murder))
+print(paste("Mean of 2016 murders  ",mean_2016murder))
+
+
+```
+
+
+## Subset the data by columns and rows
+We consider 10 cities where murder rates are higher
+```{r}
+# in this example we are focusing only  cities where murder rates are increased drastically
+#find the 10th highest value
+top10value2016 =sort(murder2016$change,TRUE)[10];
+top10value2015 =sort(murder2015$change,TRUE)[10];
+
+#consider cities which has greater than top 10th crime increase also subset the columns
+murder2016_top10 <-subset(murder2016,change >= top10value2016,select = c(city,state,murders_2015,murders_2016,change))
+
+murder2015_top10 <-subset(murder2015,change >= top10value2015)
+
+
+```
+
+## Data transformation -Add a new column by deriving value from existing column
+Add a new columns for increase rate
+
+```{r}
+
+#add a new column by deriving value from an existing column
+murder2016_top10  <- transform(murder2016_top10 ,increase = round(change/murders_2015 *100,0))
+murder2015_top10  <- transform(murder2015_top10 ,increase = round(change/murders_2014 *100,0))
+
+
+```
+
+
+## Join 2 dataframe
+Create a new data from by combining 2 different data frame , which will make the comparison easier.
+Data frame are joined using city and state.
+```{r}
+
+murder2016_subset  <- transform(murder2016 ,increase_rate = round(change/murders_2015 *100,0))
+murder2015_subset  <- transform(murder2015 ,increase_rate = round(change/murders_2014 *100,0))
+
+murder2016_subset <-subset(murder2016_subset,select = c(city,state,increase_rate,change))
+murder2015_subset <-subset(murder2015_subset,select = c(city,state,increase_rate,change))
+
+joinedresult = inner_join(murder2016_subset , murder2015_subset, by = c("city","state"), suffix = c("_2016","_2015"))
+joinedresult10 <- head(joinedresult,10)
+
+
+```
+
+## Bar plot
+
+Display 10 cities and murder rates where murder rates are higher over previous year (2016)
+
+```{r}
+
+ggplot(data=murder2016_top10, aes(x=city, y=increase,color=city,fill=city)) +  geom_bar(stat="identity") +labs(title='Crime Rate Across major cities 2016',x='City',y='Crime Rate increase') + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+geom_text(aes(label=increase), position=position_dodge(width=0.9), vjust=-0.25)
+
+
+
+```
+
+## Grouped Bar Plot
+Comparison of murder rate in 2015 and 2016
+
+```{r}
+joinedresult10_new <-subset(joinedresult10,select = c(city,increase_rate_2016,increase_rate_2015))
+
+joinedresult10_new_transform <- joinedresult10_new %>%
+  gather("Stat", "Value", -city)
+
+
+ggplot(joinedresult10_new_transform, aes(x = city, y = Value, fill = Stat)) +
+ geom_col(position = "dodge")+labs(title='Crime Rate Comparison',x='City',y='Crime Rate increase')+ theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+```
+
+
+## Conclusions
+
+<!--It is clear from the comparison that some of the crime rate -->
+From the data analysis it is clear that there is widespread rise in murder rate in 2015. 
+In 2016 it appears more concentrated in few big cities like Chicago and Orlando.
