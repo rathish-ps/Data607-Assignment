@@ -1,0 +1,6 @@
+default:
+  applicationdb:
+    server: 'rassnw2.c4h7w2meulft.us-east-1.rds.amazonaws.com'
+    uid: 'readOnly'
+    pwd: 'welcome'  
+   

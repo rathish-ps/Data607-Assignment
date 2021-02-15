@@ -1,0 +1,108 @@
+---
+title: "Data 607 Assignment 2"
+output: html_document
+#params:
+#  pwd:
+#    label: "Enter the database password, please!"
+#    value: ""
+#    input: password
+---
+#### ***Rathish Parayil Sasidharan***
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## Overview
+
+Created a survey to rate six movies **GREENLAND,THE CROODS: A NEW AGE,MULAN,SUMMERLAND,GREYHOUND,THE GENTLEMEN** \
+ with rating Excellent (5),Good (4),Not Bad(3), Bad(2),Awful(1)  and collected the survey response.
+ 
+[Please find the survey ](https://www.surveymonkey.com/r/F82FVCV)
+
+High level tasks performed as part of this assignment
+
+1. Created a survey in surveymonkey and collected the response \
+2. Created AWS RDS instance and configured it to access using public url \
+3. Created 2 normalized tables,one for movie and other for movie rating \
+4. Inserted the response data into database table using a script \
+5. In order to protect the data ,created a readonly user account on the db \ 
+6. Read the data from database from the R Markup \
+7. Eliminated N/A data \
+8. Data transformation and Visualization
+
+
+
+## Prerequisites
+Load required packages
+```{r message=FALSE}
+#install.packages("RMySQL")
+library("RMySQL")
+library("dplyr")
+library("ggplot2")
+library("tidyr")
+#library("config")
+ 
+```
+
+## Loading the dataframe from the Data base
+
+
+```{r}
+
+# Create a connection Object to MySQL database.
+
+#password can also be read as a user input by knit with parameter option
+#or can also be read from a config file(yaml)
+#dw <- config::get("applicationdb")
+#print(dw$server)
+#print(dw$uid)
+#print(dw$pwd)
+#mysqlconnection = dbConnect(MySQL(), user = dw$uid, password = dw$pwd, dbname = 'database_name',
+ #  host = dw$server)
+
+
+
+mysqlconnection = dbConnect(MySQL(), user = 'readOnly', password = 'welcome', dbname = 'database_name',
+   host = 'rassnw2.c4h7w2meulft.us-east-1.rds.amazonaws.com')
+
+# List the tables available in this database.
+ #dbListTables(mysqlconnection)
+ 
+ # Query the movie rating tables to get all rating and associated movies.
+ result = dbSendQuery(mysqlconnection, "select mr.id,mv.movie_name,mr.rating from movie_rating mr join movie mv on mr.movie_id = mv.movie_id")
+
+# Store the result in a R data frame object. n = 30 is used to fetch first 30 rows.
+employeedata = fetch(result, n = 30)
+print(employeedata)
+
+```
+
+
+### Clean up the data
+```{r}
+employee_valid_data <- employeedata %>% drop_na()
+
+# Conver the ratings into a Readable Text
+ employee_valid_data <- mutate(employee_valid_data,review = case_when(rating == 5 ~'Excellent',rating == 4 ~'Good',rating == 3 ~'Not Bad',rating == 2 ~'Bad',rating == 1 ~'Awful' ))
+ 
+ print(employee_valid_data)
+ 
+```
+
+
+### Data visualization
+How each movies are rated by the users ?\
+Plot a graph with list of movies vs number of rating for each category
+
+```{r}
+ggplot(count(employee_valid_data,movie_name,review), aes(fill=review, y=n, x=review)) +
+     geom_bar(position="dodge", stat="identity") +
+     ggtitle("Movie rating") +
+     facet_wrap(~movie_name)+xlab("")+ylab("Number of Rating") + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+```
+
+### Conclusion
+
+According to the survey result "Greenland" movie has got better rating
+
