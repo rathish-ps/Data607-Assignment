@@ -1,0 +1,174 @@
+---
+title: "Data 607 Week 3"
+output: html_document
+---
+#### ***Rathish Parayil Sasidharan***
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Overview
+
+Please deliver links to an R Markdown file (in GitHub and rpubs.com) with solutions to the problems below. 
+
+## Problem 1
+
+Using the 173 majors listed in fivethirtyeight.com’s College Majors dataset 
+[https://fivethirtyeight.com/features/the-economic-guide-to-picking-a-college-major/], provide code that identifies the majors that contain either "DATA" or "STATISTICS"
+
+### Prerequisites
+Load required packages
+```{r message=FALSE}
+library("stringr")
+
+```
+
+
+Read the CSV file and grep for "DATA" or "STATISTICS"
+```{r}
+
+#Read the file 
+
+col_majors_ds<-read.csv("https://raw.githubusercontent.com/fivethirtyeight/data/master/college-majors/majors-list.csv")
+
+col_majors_ds[grep("DATA", col_majors_ds$Major,ignore.case ="True"),]
+col_majors_ds[grep("STATISTICS", col_majors_ds$Major,ignore.case ="True"),]
+```
+
+## Problem 2 
+2 Write code that transforms the data below:
+
+[1] "bell pepper"  "bilberry"     "blackberry"   "blood orange"
+
+[5] "blueberry"    "cantaloupe"   "chili pepper" "cloudberry"  
+
+[9] "elderberry"   "lime"         "lychee"       "mulberry"    
+
+[13] "olive"        "salal berry"
+
+Into a format like this:
+
+c("bell pepper", "bilberry", "blackberry", "blood orange", "blueberry", "cantaloupe", "chili pepper", "cloudberry", "elderberry", "lime", "lychee", "mulberry", "olive", "salal berry")
+
+The two exercises below are taken from R for Data Science, 14.3.5.1 in the on-line version:
+
+```{r}
+
+input_str <- '[1] "bell pepper"  "bilberry"     "blackberry"   "blood orange"
+
+[5] "blueberry"    "cantaloupe"   "chili pepper" "cloudberry"  
+
+[9] "elderberry"   "lime"         "lychee"       "mulberry"    
+
+[13] "olive"        "salal berry"'
+
+extracted_str <- str_extract_all(input_str, pattern = "\"([:alpha:]+.[:alpha:]+)\"")
+
+final_str <- str_replace_all(extracted_str[[1]], "\"", "")
+
+final_str
+
+```
+
+## Problem 3 
+
+Describe, in words, what these expressions will match:
+
+(.)\1\1 
+
+**Ans -**\
+Pattern for matching any single character, followed by two repetitions (3 repeating characters)
+
+eg : aaa, 111
+```{r}
+testData <- c("111")
+str_extract_all(testData , regex("(.)\\1\\1"))
+ 
+```
+
+
+"(.)(.)\\2\\1"
+
+**Ans **
+I assume \\ and \\\\ (escaped \\) are the same ,even though they are not literally same.
+In R , \\ has to be escaped (\\\\). 
+But with regard to a regular expression context  \\\\1 means character \\ followed by group 1 and \\1 mean the group 1.
+
+Two consecutive characters are repeated but in reverse order
+eg: 1221 or abba 
+
+```{r}
+testData <- c("abba")
+str_extract_all(testData , regex("(.)(.)\\2\\1"))
+ 
+```
+
+(..)\1
+
+**Ans **
+Two consecutive characters are repeated
+eg : abab, 1212
+
+```{r}
+testData <- c("abab")
+str_extract_all(testData , regex("(..)\\1"))
+ 
+```
+
+
+"(.).\\1.\\1"
+
+**Ans **
+In a string ,if there is a 5 consecutive character with 3 are repeating which are in 1,3,5 character positions.
+
+eg :12141 ,abaca
+
+
+```{r}
+testData <- c("12141")
+str_extract_all(testData , regex("(.).\\1.\\1"))
+ 
+```
+
+
+"(.)(.)(.).*\\3\\2\\1"
+
+***Ans ** \
+
+a set of characters  with first 3 and last 3 characters are same ,but in reverse order with any number of characters in between them \
+
+eg : abc12345cba \
+
+{firstcharacter}{secondcharacter}{thirdcharacter}{any number of characters}{group3}{group2}{group1}\
+
+```{r}
+testData <- c("abc12345cba")
+str_extract_all(testData , regex("(.)(.)(.).*\\3\\2\\1"))
+```
+
+## Problem 4 - Construct regular expressions to match words that:
+
+Start and end with the same character.
+
+**Ans**\
+"(.).*\\1"
+
+
+Contain a repeated pair of letters (e.g. "church" contains "ch" repeated twice.)
+
+**Ans **\
+
+".*([a-z][a-z]).*\1.*"  - without escape
+
+".\*([a-z][a-z]).\*\1.*" --with escape
+
+Contain one letter repeated in at least three places (e.g. "eleven" contains three "e"s.)
+
+**Ans** \
+
+".*([a-z]).*\1.*\1.*" - without escape
+
+".\*([a-z]).\*\1.\*\1.\*" --with escape
+
+
+
