@@ -1,0 +1,124 @@
+---
+title: "Data607 Project1"
+output: html_document
+---
+#### ***Rathish Parayil Sasidharan***
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Overview
+
+In this project, you’re given a text file with chess tournament results where the information has some structure.  Your job is to create an R Markdown file that generates a .CSV file (that could for example be imported into a SQL database) with the following information for all of the players: Player’s Name, Player’s State, Total Number of Points, Player’s Pre-Rating, and Average Pre Chess Rating of Opponents 
+
+
+
+### Prerequisites
+Load required packages
+```{r}
+library("stringr")
+
+```
+
+
+## Read the input text file
+```{r}
+
+tournamentDf<-read.csv("https://raw.githubusercontent.com/rathish-ps/Data607-Assignment/main/tournamentinfo.txt",header=FALSE)
+
+tournamentData <- matrix(unlist(tournamentDf), byrow=TRUE)
+
+```
+
+
+## Restructure the data
+```{r}
+dotLineSeq <- seq(1,length(tournamentData),3)
+#Remove all --- line 
+linn1<-tournamentData[-dotLineSeq]
+
+# Read all the alternate lines 
+
+#Read player names
+playerInfo <- linn1[seq(3,length(linn1),2)]
+
+# Read state and pre-tournament ratings
+playerDetails <- linn1[seq(4,length(linn1),2)]
+
+#combile the player information and state information into single vector
+playerInfo<-paste0(playerInfo,playerDetails)
+
+playerInfo
+
+
+```
+
+## Create a dataframe with player information
+
+```{r}
+# Create an Empty data frame 
+playerInfoDf <- data.frame(data1 = character(0),Name = character(0),data3= character(0),Round1= character(0),Round2= character(0),Round3= character(0),Round4= character(0),Round5= character(0),Round6= character(0),Round7= character(0),state= character(0),data12= character(0))
+
+# Split the string by | and populate records in data frame (only first 12 columns)
+i<- 1
+while (i <= length(playerInfo)){
+    playerInfoDf[nrow(playerInfoDf) + 1, ] <- str_trim(strsplit(playerInfo[i],"|",fixed=TRUE)[[1]])[1:12]
+    i <- i+1
+}
+
+head(playerInfoDf)
+
+```
+
+
+
+## Create final dataframe for CSV
+```{r}
+#Player’s Name, Player’s State, Total Number of Points, Player’s Pre-Rating, and Average Pre Chess Rating of Opponents 
+
+finalResultCSVFrame <- data.frame(Name = character(0),State = character(0),TotalPoints= character(0),PreRating= character(0),AvgRatingOfOpp= character(0))
+
+#iterate each record
+for(i in 1:nrow(playerInfoDf)){
+  value3 <- 0
+  cnt <-0
+   # extract opponent id for each round  (1 to 7 ) -from column 4,10
+   for (j in 4:10){
+     
+     #split each round column by space
+     roundVals <- strsplit(playerInfoDf[i,j], "\\s+")
+     
+     if(roundVals[[1]][1]== "W" ||  roundVals[[1]][1]== "L"||  roundVals[[1]][1]== "D"){
+       
+       #using the row id ,find opponent Pre-rating column
+       value2 <- playerInfoDf[roundVals[[1]][2],12]
+       
+       #find the 2nd number ,ie number after R: ,and sum it
+       value3 <- value3 + as.numeric(regmatches(value2 , gregexpr("[[:digit:]]+", value2 ))[[1]][2])
+       cnt <- cnt +1
+     }
+     
+   }
+   #find the mean value and round it
+   meanValue <- round(value3/cnt)
+ 
+  #find the player pre-rating info  
+  playerPreValue <-  as.numeric(regmatches(playerInfoDf[i,12] , gregexpr("[[:digit:]]+", playerInfoDf[i,12] ))[[1]][2])
+  
+  finalResultCSVFrame[nrow(finalResultCSVFrame) + 1, ] <-c(playerInfoDf[i,'Name'],playerInfoDf[i,'state'],playerInfoDf[i,'data3'],playerPreValue,meanValue)
+}
+
+finalResultCSVFrame
+
+#write the data into CSV file
+write.csv(finalResultCSVFrame,"playerInfo.csv")
+```
+
+
+### Conclusion
+
+The application read the text input file, transform the data into required output format and finally write the data frame into a CSV file (playerInfo.csv)  
+
+
+
