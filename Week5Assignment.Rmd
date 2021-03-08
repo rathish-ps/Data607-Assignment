@@ -1,0 +1,125 @@
+---
+title: "Week5 Assignment"
+output: html_document
+---
+#### ***Rathish Parayil Sasidharan***
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Overview
+
+The chart above describes arrival delays for two airlines across five destinations.  \
+
+Your task is to: 
+(1) Create a .CSV file  that includes all of the information above.  \
+    You’re encouraged to use a “wide” structure similar to how the information appears above, \ 
+    so that you can practice tidying and transformations as described below. \
+(2) Read the information from your .CSV file into R, and use tidyr and dplyr as \ 
+   needed to tidy and transform your data.\   
+(3) Perform analysis to compare the arrival delays for the two airlines.\ 
+(4) Your code should be in an R Markdown file, posted to rpubs.com, and should include narrative descriptions of your data\     cleanup work, analysis, and conclusions.\
+Please include in your homework submission: \
+The URL to the .Rmd file in your GitHub repository. and 
+The URL for your rpubs.com web page
+
+### Prerequisites
+Load required packages
+```{r message=FALSE}
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+```
+
+## Read the airline data
+
+```{r message=FALSE}
+airlinesUntidyDf<-read.csv("https://raw.githubusercontent.com/rathish-ps/Data607-Assignment/main/airlines.csv")
+airlinesUntidyDf
+
+```
+
+
+## Clean up the data
+
+Transform the data from wide format to long format
+
+```{r message=FALSE}
+#Move the destination columns (3 to 7) from the untidy data frame  into single destination column
+#wide data into longer format and then widen the Arrival Status into separate columns
+
+airlinesDf <- gather(airlinesUntidyDf,Destination, delays, 3:7) %>%spread(2,4)
+airlinesDf
+```
+
+
+## Data transformation
+
+Add additional columns for total ,  percentages for On time and delays
+
+```{r message=FALSE}
+
+#Add additional columns for total flights , on time and delayed percentages 
+airlinesTfDf <- airlinesDf %>% 
+        mutate(total = delayed + `on time`,prcntOnTime = round(100 * `on time` / total, 2), prcntDelayed = round(delayed / total * 100, 2)) 
+
+
+airlinesTfDf
+
+#summary(airlinesTfDf)
+
+#Create a summary record for each airline
+ airlineSummaryDf <- airlinesTfDf %>% 
+  group_by(Airline) %>% 
+  summarise(totalDelayed = sum(delayed), totalOnTime = sum(`on time`), totalFlights = sum(total)) 
+ 
+# Add additional columns for percentage - on-time and delayed flights 
+ airlineSummaryDf<- airlineSummaryDf %>%  mutate(percentOntime = round(totalOnTime/totalFlights * 100, 2),percentDelayed = round(totalDelayed/totalFlights * 100, 2))
+airlineSummaryDf
+```
+
+
+## Data visualisation
+Bar plot for each destination by Airline
+```{r message=FALSE}
+
+#bar plot for ontime flights
+plt <- ggplot(airlinesTfDf, aes(y=prcntOnTime , x = Airline, color = Airline, fill = Airline)) + 
+    geom_bar( stat = "identity") +
+    geom_text(aes(label = prcntOnTime ), vjust = -.35) +
+     ylim(0, 95) +
+    facet_wrap(~Destination) +
+    ylab("Percentage - On time Flights") +
+    ggtitle("Percentage of On time Flights / Airline / Destination")
+    
+plt
+
+
+# bar plot for delayed flights
+plt1 <- ggplot(airlinesTfDf, aes(y=prcntDelayed, x = Airline, color = Airline, fill = Airline)) + 
+    geom_bar( stat = "identity") +
+    geom_text(aes(label = prcntDelayed), vjust = -.35) +
+    ylim(0, 30) +
+    facet_wrap(~Destination) +
+    ylab("Percentage - Delayed Flights") +
+    ggtitle("Percentage of Delayed Flights / Airline / Destination")
+    
+plt1
+
+
+
+
+```
+
+
+## Summary
+
+It is clear from the summary data that 'ALASKA' airline has more percentage delay than 'AM WEST' airline ,even though
+'AM WEST' has more percentage delay for each destination. This is mostly because of the number of flights operated by each airline to different destinations are different. 
+
+
+
+
+
