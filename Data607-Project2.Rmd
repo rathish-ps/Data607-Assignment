@@ -1,0 +1,231 @@
+---
+title: "Data607-Project2"
+output: 
+  html_document:
+    theme: cerulean
+    toc: true
+    toc_float: true
+
+---
+#### ***Rathish Parayil Sasidharan***
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Overview
+
+(1) Choose any three of the “wide” data sets identified in the Week 6 Discussion items.  
+(You may use your own data set; please don’t use my Sample Post data set, since that was used in your Week 6 assignment!)  
+For each of the three chosen data sets:
+Create a .CSV file (or optionally, a MySQL database!) that includes all of the information included in the data set.  
+You’re encouraged to use a “wide” structure similar to how the information appears in the discussion item, 
+so that you can practice tidying and transformations as described below. 
+Read the information from your .CSV file into R, and use tidyr and dplyr as needed to tidy and transform your data.  
+[Most of your grade will be based on this step!] 
+Perform the analysis requested in the discussion item. 
+Your code should be in an R Markdown file, posted to rpubs.com, and should include narrative descriptions of your data cleanup work, analysis, and conclusions.   
+
+(2) Please include in your homework submission, for each of the three chosen data sets: 
+The URL to the .Rmd file in your GitHub repository, and  
+The URL for your rpubs.com web page. 
+
+
+## Prerequisite
+Load required packages
+```{r message=FALSE}
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+```
+
+## Prison admin and population
+### Problem 
+Below is a dataset on prison admissions and population at the county level. It was used for the NYTimes article "A Small Indiana County Sends More People to Prison Than San Francisco and Durham, N.C., Combined. Why?"
+
+[Dataset](https://github.com/TheUpshot/prison-admissions/blob/master/county-prison-admissions.csv)
+
+The data is in wide format with prison admissions/10k residents, prison admissions count, and prison population count at three different time points reported per county. Also the year information is part of the column name
+
+#### Read the data
+```{r}
+#Read the CSV data
+prisonData<-read.csv("https://raw.githubusercontent.com/rathish-ps/Data607-Assignment/main/county-prison-admissions.csv",stringsAsFactors=FALSE)
+head(prisonData,10)
+```
+
+#### Tidy and transform the data
+Clean up the column name ,extract the year information from column name
+```{r}
+prisonData[,"admissions2014"] <- as.numeric(prisonData[, "admissions2014"])
+
+#extract the year information from column name (extract last 4 characters of the column name)
+#convert the data into long format by creating a new column for "year" value
+prisonData.long <- pivot_longer(prisonData, cols = -c("fips","county","state","valid06","valid13","valid14","source"), 
+                          names_to = c("type","year"), 
+                          names_sep = -4, 
+                         values_drop_na = TRUE,
+                         values_to = "values2")
+
+
+
+#values_ptypes = list(values2 = double())
+
+#widen the data by converting the admitsPer10k,population,admissions column values into new columns for each year
+#clean up the redundant columns
+prisonDataFinal<-pivot_wider(prisonData.long ,names_from = type, values_from = values2) %>% select (fips,county,state,year,admitsPer10k,population,admissions)
+
+head(prisonDataFinal,10)
+
+```
+
+
+### Analysis 
+Find the county,state and year which has maximum admissions ?
+
+```{r}
+
+prisonDataFinal %>% filter(admissions == max(prisonDataFinal$admissions,na.rm = TRUE))
+
+```
+
+## US County populations data:
+### Problem 
+
+US County populations data:
+
+https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2018/2018-04-30/week5_acs2015_county_data.csv
+
+The description of the data is here:
+
+
+
+#### Read the data
+```{r}
+
+#Read the data
+usPopulationDf<-read.csv("https://raw.githubusercontent.com/rathish-ps/Data607-Assignment/main/acs2015_county_data.csv")
+head(usPopulationDf,10)
+
+
+
+
+
+```
+
+#### Tidy and transform the data
+```{r}
+
+#clean up the columns
+usPopulationClndf <- usPopulationDf %>%select(1:12)
+#Convert the 7:12 ethnicity values into ethnicity column and it's value into
+usPopulationDfLong <- pivot_longer(usPopulationClndf,cols = c(7:12),names_to ="ethnicity",values_to ="ethnicPopulation")
+head(usPopulationDfLong,10)
+```
+
+
+### Analysis 
+
+Which state and county has the highest Hispanic population ?
+```{r}
+
+usPopulationDfLong %>% filter(ethnicity =='Hispanic') %>%
+filter(ethnicPopulation == max(ethnicPopulation,na.rm = TRUE))
+
+```
+
+## Rising murder rate across different US cities
+
+
+### Problem 
+Rising murder rate across different US cities
+
+The data is wide format with one column for each year's murders
+
+#### Read the data
+```{r}
+
+#Read the data
+murderRate <-read.csv("https://raw.githubusercontent.com/rathish-ps/Data607-Assignment/main/murder_data.csv")
+head(murderRate,10)
+
+
+```
+
+#### Tidy and transform the data
+```{r}
+#clean up the column name
+colnames(murderRate)[3] <- '2015_murders'
+colnames(murderRate)[4] <- '2016_murders'
+colnames(murderRate)[5] <- '2017_murders'
+colnames(murderRate)[6] <- '2018_murders'
+
+#convert the column names into year and murder
+murderRate.long <- pivot_longer(murderRate, cols = -c("city","state","source","as_of"), 
+                          names_to = c("year","murders"), 
+                          names_sep = "_", 
+                         values_drop_na = TRUE,
+                         values_to = "murder")
+
+#clean up the redundant columns
+murderRate.final<-murderRate.long %>% select(city,state,year,murder)
+head(murderRate.final,10)
+```
+
+
+### Analysis 
+
+Which year,city,state had the highest murder ?
+
+
+```{r}
+murderRate.final %>% filter(murder == max(murder,na.rm = TRUE))
+
+```
+
+## Movie Rating
+### Problem 
+
+This is a sample data which is in wide format with movie names are listed as columns
+
+#### Read the data
+```{r}
+#Read the data
+movieRating <-read.csv("https://raw.githubusercontent.com/rathish-ps/Data607-Assignment/main/movie_data.csv")
+head(movieRating,10)
+
+
+
+```
+
+#### Tidy and transform the data
+```{r}
+#convert the data into long format
+movieRating.long <- pivot_longer(movieRating,cols = c(2:6),names_to ="movies",values_to ="rating")
+
+
+#Add meaningful value to the rating 
+movieRatingFinal <- mutate(movieRating.long,review = case_when(rating == 5 ~'Excellent',rating == 4 ~'Good',rating == 3 ~'Not Bad',rating == 2 ~'Bad',rating == 1 ~'Awful' ))
+ 
+head(movieRatingFinal,10)
+```
+
+
+### Analysis 
+Which movie has the highest rating
+```{r}
+movieRatingAgg <- aggregate(movieRatingFinal$rating , by=list(Name=movieRatingFinal$movies), FUN=sum,na.rm = TRUE)
+
+movieRatingAgg %>% filter(x == max(x,na.rm = TRUE))
+
+
+```
+
+
+## Summary
+ 
+Read different dataset which are untidy ,used  tidyr and dplyr  inorder to tidy and transform the data.
+Also performed different analysis on the data. 
+
