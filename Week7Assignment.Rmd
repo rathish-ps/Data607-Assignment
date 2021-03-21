@@ -27,11 +27,8 @@ Write R code, using your packages of choice, to load the information from each o
 Load the required libraries
 ```{r , message=FALSE}
 library("XML")
-library("methods")
 library('jsonlite')
-library("rjson")
 library('plyr')
-library('RCurl')
 library('tidyverse')
 ```
 

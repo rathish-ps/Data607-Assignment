@@ -1538,13 +1538,9 @@ div.tocify {
 <h2>Prerequisite</h2>
 <p>Load the required libraries</p>
 <pre class="r"><code>library(&quot;XML&quot;)
-library(&quot;methods&quot;)
 library(&#39;jsonlite&#39;)
-library(&quot;rjson&quot;)
 library(&#39;plyr&#39;)
-library(&#39;RCurl&#39;)</code></pre>
-<pre><code>## Warning: package &#39;RCurl&#39; was built under R version 4.0.4</code></pre>
-<pre class="r"><code>library(&#39;tidyverse&#39;)</code></pre>
+library(&#39;tidyverse&#39;)</code></pre>
 </div>
 <div id="convert-xml-to-dataframe" class="section level2">
 <h2>Convert XML to Dataframe</h2>
@@ -1578,7 +1574,7 @@ df2&lt;-book7json$catalog$book
 df2</code></pre>
 <pre><code>##           title                       author   genre publish_date    isbn
 ## 1 War and Peace                  Leo,Tolstoy   Novel         1869 isbn100
-## 2    Good Omens Neil,Gaiman, Terry,Pratchett Fantasy         1655 isbn101
+## 2    Good Omens Neil Gaiman, Terry Pratchett Fantasy         1655 isbn101
 ## 3 The Alchemist                 Paulo,Coelho Fantasy         1988 isbn102</code></pre>
 </div>
 <div id="convert-html-to-dataframe" class="section level2">
