@@ -3,7 +3,7 @@
         {
             "title": "War and Peace",
 			"author": [
-                "Leo,Tolstoy"
+                "Leo Tolstoy"
             ],
             "genre": "Novel",
 			"publish_date": "1869",
@@ -22,7 +22,7 @@
         {
             "title": "The Alchemist",
 			"author": [
-                "Paulo,Coelho"
+                "Paulo Coelho"
             ],
             "genre": "Fantasy",
 			"publish_date": "1988",

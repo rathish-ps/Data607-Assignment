@@ -3,7 +3,7 @@
    <book id="book1">
       <title>War and Peace</title>
       <authors>
-        <author>Leo,Tolstoy</author>
+        <author>Leo Tolstoy</author>
 	  </authors>	  
       <genre>Novel</genre>
       <publish_date>1869</publish_date>
@@ -12,8 +12,8 @@
    <book id="book2">
       <title>Good Omens</title>
       <authors>
-       <author>Neil,Gaiman</author>
-	   <author>Terry,Pratchett</author>
+       <author>Neil Gaiman</author>
+	   <author>Terry Pratchett</author>
       </authors>
       <genre>Fantasy</genre>
 	  <publish_date>1655</publish_date>  
@@ -22,7 +22,7 @@
    <book id="book3">
       <title>The Alchemist</title>      
 	  <authors>
-	    <author>Paulo,Coelho</author>
+	    <author>Paulo Coelho</author>
 	  </authors>	
       <genre>Fantasy</genre>
       <publish_date>1988</publish_date>
