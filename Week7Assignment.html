@@ -1553,6 +1553,10 @@ df1 &lt;- ldply(xpathApply(xmlParse(xmlData), &quot;/catalog/book&quot;, functio
         title &lt;- xmlValue(node[[&quot;title&quot;]])
         #find all authors
         author &lt;- xpathSApply(node, &quot;./authors/author&quot;, xmlValue)
+        
+        #to combine the authors into single row by comma seperated
+        author&lt;-paste(as.character(author), collapse=&quot;, &quot;)
+        
         genre &lt;- xmlValue(node[[&quot;genre&quot;]])
         year &lt;- xmlValue(node[[&quot;publish_date&quot;]])
         isbn &lt;- xmlValue(node[[&quot;isbn&quot;]])
@@ -1561,11 +1565,10 @@ df1 &lt;- ldply(xpathApply(xmlParse(xmlData), &quot;/catalog/book&quot;, functio
 }), data.frame)
 
 df1</code></pre>
-<pre><code>##           title          author   genre year    isbn
-## 1 War and Peace     Leo,Tolstoy   Novel 1869 isbn100
-## 2    Good Omens     Neil,Gaiman Fantasy 1655 isbn101
-## 3    Good Omens Terry,Pratchett Fantasy 1655 isbn101
-## 4 The Alchemist    Paulo,Coelho Fantasy 1988 isbn102</code></pre>
+<pre><code>##           title                       author   genre year    isbn
+## 1 War and Peace                  Leo,Tolstoy   Novel 1869 isbn100
+## 2    Good Omens Neil,Gaiman, Terry,Pratchett Fantasy 1655 isbn101
+## 3 The Alchemist                 Paulo,Coelho Fantasy 1988 isbn102</code></pre>
 </div>
 <div id="convert-json-to-dataframe" class="section level2">
 <h2>Convert JSON to Dataframe</h2>

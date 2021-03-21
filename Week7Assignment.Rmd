@@ -44,6 +44,10 @@ df1 <- ldply(xpathApply(xmlParse(xmlData), "/catalog/book", function(node) {
         title <- xmlValue(node[["title"]])
         #find all authors
         author <- xpathSApply(node, "./authors/author", xmlValue)
+        
+        #to combine the authors into single row by comma seperated
+        author<-paste(as.character(author), collapse=", ")
+        
         genre <- xmlValue(node[["genre"]])
         year <- xmlValue(node[["publish_date"]])
         isbn <- xmlValue(node[["isbn"]])
