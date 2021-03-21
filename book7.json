@@ -1,0 +1,32 @@
+{"catalog": 
+    {"book": [
+        {
+            "title": "War and Peace",
+			"author": [
+                "Leo,Tolstoy"
+            ],
+            "genre": "Novel",
+			"publish_date": "1869",
+            "isbn": "isbn100"
+        },
+        {
+            "title": "Good Omens",
+			"author": [
+                "Neil,Gaiman",
+				"Terry,Pratchett"
+            ],
+            "genre": "Fantasy",
+			"publish_date": "1655",
+            "isbn": "isbn101"
+        },
+        {
+            "title": "The Alchemist",
+			"author": [
+                "Paulo,Coelho"
+            ],
+            "genre": "Fantasy",
+			"publish_date": "1988",
+            "isbn": "isbn102"
+        }
+    ]}
+}
