@@ -1,0 +1,260 @@
+---
+title: "CUNY SPS 607 Project 3"
+output: html_document
+---
+
+```{r setup, message = F}
+library(RMySQL)
+library(tidyverse)
+library(reactable)
+library(stringr)
+library(ggplot2)
+library(fuzzyjoin)
+library(stringr)
+```
+
+# Introduction
+
+The data source we will be using is a [2020 survey from Kaggle](https://www.kaggle.com/c/kaggle-survey-2020) which surveyed Data Scientist. The questions in the survey asked about which languages, tools, and skills that Data Scientist use daily. The data is a csv file with 355 columns and 20,000 rows and will need to be cleaning up before it is uploaded into a normalized database. With the dataset we will looking at the answers and seeing what answers come up frequently as those are the skills and tools that are the valuable skills that data scientists have.
+
+In the survey 39 questions were asked. Many of the survey questions are relevant to answering, "What is the most valued data science skills." The survey also included sub questions which was labeled using the question number and a letter. The data set also includes branching questions where if a question if a specific question is answered then an alternative question is asked. The dataset is a very long and sparse data set which will require a lot of cleaning before any data analysis can be done.
+
+![ERD Diagram](https://raw.githubusercontent.com/xvicxpx/CUNY-SPS-Data-607-Project-3/main/ERD.png)
+
+In order to normalize the database, we created a relational database using tables with primary keys. This allows the database to be organized and joined in many ways. The database tables are split into questions, answers, and user responses and are all joined using index and primary keys. All the information is uploaded into Amazon Web Services allowing multiple people to be querying the dataset at the same time.
+
+# Connecting and Importing data to SQL {.tabset}
+
+## Opening Connection to SQL Server
+
+We will begin by opening a connection to the SQL instance that was created on AWS. For security purposes the password can be stored in a file that will not be synced to github, or the user will be prompted to enter it if using RStudio.
+
+```{r establish-sql-connection}
+pwfile <- "db_pw.txt"
+if ( file.exists(pwfile) )
+{
+  pass <- readLines(pwfile)
+}else 
+{
+  pass <- rstudioapi::askForPassword( prompt = "Please enter DB password:" ) 
+}
+
+conn = dbConnect(MySQL(), user='admin', pass= pass , dbname='project3db', 
+                 host='project3.c4h7w2meulft.us-east-1.rds.amazonaws.com', port=3306)
+
+dbListTables(conn = conn)
+```
+
+## Import Raw Data from Github
+
+The raw data is available from Kaggle. However, for easier access we have uploaded it to a [github repository](https://raw.githubusercontent.com/xvicxpx/CUNY-SPS-Data-607-Project-3/main/kaggle-survey-2020/kaggle_survey_2020_responses.cs) to be used for this project.
+
+```{r import-raw-data, message=FALSE}
+rawDataGitHub <- read_csv('https://raw.githubusercontent.com/xvicxpx/CUNY-SPS-Data-607-Project-3/main/kaggle-survey-2020/kaggle_survey_2020_responses.csv' )
+```
+
+Please find the head of the raw data.
+
+```{r raw-data-preview}
+reactable(head(rawDataGitHub,20))
+```
+
+=======
+## Tidying Data
+
+This will just be a simple incrementing number id which will allow us to keep track of users responses once the data has been unpivoted using the pivot_long function. We will also be needing to remove the first row as the first row includes the question being asked.
+
+```{r Cleaning of Data}
+clean_data <- rawDataGitHub[ -1,]
+
+clean_data <- clean_data %>% 
+  mutate(id = rownames(clean_data)) %>% 
+  select(id, everything() )
+
+reactable(head(clean_data,20) )
+```
+
+
+In the unpivoting we will also be cleaning up all the sub questions. The sub questions allows for the respondent to have more than one answer. Instead of treating sub questions as individuals questions we will be combining them together to give us more data and also allow for easier analysis.
+
+```{r unpivoting of data}
+clean_data <- clean_data %>%
+  pivot_longer(cols = Q1:Q35_B_OTHER, names_to ="Question", values_to='Response')
+```
+
+Because we fixed the sub questions it created a lot of empty responses. We will be filtering out any empty responses as it is wasted space.
+```{r filtering out unanswered questions}
+clean_data <- clean_data %>%
+  drop_na(Response) %>% 
+  mutate_all (str_trim)
+```
+
+=======
+## Export data to MySQL
+
+The questions have been pre-populated, as well as the questions for the multiple choice. These have been placed into two tables `SurveyQuestions` and `SurveyMltQuestionAnswers`.
+
+I will use the tidied data to import the information into the `SurveyResponse` table. 
+
+```{r get-question-id-from-db}
+surveyQuestionsTable <- dbReadTable(conn,"SurveyQuestions")
+questionsFromRawData <- as.data.frame(t(as.matrix(rawDataGitHub[1,]) )) %>% 
+  rownames_to_column("Question") %>% 
+  rename ("QuestionText" = V1) 
+
+questionsFromRawData <- questionsFromRawData %>% 
+  mutate (QuestionText = str_replace(QuestionText, ': - Selected Choice','') ) %>% 
+  mutate (QuestionText = str_replace(QuestionText, ' - Selected Choice','') ) %>% 
+  separate(QuestionText,c('QuestionText', 'garbage'), sep = "\\(Select all that apply\\)", fill="right" ) %>%
+  select( -garbage ) %>% 
+  separate(QuestionText,c('QuestionText', 'garbage'), sep = "-", fill="right" ) %>%
+  select( -garbage ) %>% 
+  mutate_all (str_trim)
+
+match <- function ( x,y) {
+  x <- str_replace_all(x , pattern = "[[:punct:]]", "")
+  y <- str_replace_all(y , pattern = "[[:punct:]]", "")
+  x==y
+}
+
+dbQuestionRawDataMap <- fuzzy_join(surveyQuestionsTable,questionsFromRawData, by=c("QuestionText","QuestionText") , match_fun = match ) %>% 
+ select ( QuestionId, Question, QuestionType)
+```
+
+Please note the anti-fuzzy join yields the one column that we are not storing in the database.
+```{r dbQuestionRawDataMap-anti-join}
+fuzzy_anti_join(questionsFromRawData,surveyQuestionsTable, by=c("QuestionText","QuestionText") , match_fun = match )
+```
+
+Please note, we now have a way to match the questions from the raw data with the questions in the database. This has been saved in the data table `dbQuestionRawDataMap`, this was achieved using a fuzzy join on the question text. 
+```{r display-question-map}
+reactable (dbQuestionRawDataMap)
+```
+
+I will create a new data frame that contains the data in the form that will be expected by the SQL table. 
+```{r get-response-id}
+dataForSQL <- clean_data %>% 
+  rename(ResponseId = id)
+
+dataForSQL <- dataForSQL %>% 
+  left_join(y=dbQuestionRawDataMap, by = "Question") %>% 
+  select ( -starts_with('Time from') , -Question) %>% 
+  mutate (id = row_number() , QuestionaireId = 1 ) 
+```
+
+In order to update the `SurveyMltQuestionAnswers` table we will need to obtain the Response ID for the multiple choice questions. I will join this with the `dataForSQL` data frame.
+```{r}
+mltAnswerTable <- dbReadTable(conn,"SurveyMltQuestionAnswers") 
+
+multipleChoiceDataForSQL <- dataForSQL %>% 
+  filter(QuestionType == 'MULTICHOICE') 
+
+multipleChoiceDataForSQL <- 
+  inner_join(multipleChoiceDataForSQL,mltAnswerTable,by=c("QuestionId"="QuestionId","Response"="AnswerText")) %>% 
+  rename(SingleChoiceAnswerId=AnswerId) %>% 
+  select(-Response)
+
+otherDataForSQL <-dataForSQL %>% 
+  filter(QuestionType != 'MULTICHOICE') %>% 
+  rename(FreeTextResponse = Response)
+```
+
+
+We will now insert the new data frames into SQL.
+```{r sql-data-insert}
+dbGetQuery(conn,"TRUNCATE TABLE SurveyResponse")
+dbWriteTable(conn = conn, "SurveyResponse", multipleChoiceDataForSQL , append =T, row.names=F)
+dbWriteTable(conn = conn, "SurveyResponse", otherDataForSQL , append = T,  row.names=F)
+```
+# Analysis
+
+As we know the title of Data Scientist is a very vague title which has many different job functions. This title may sometimes be used interchangeable between Data Analyst, Business Analyst, and Data Engineer. We would like to look specifically what skills make a Data Scientist
+
+## Analysis 1: Programming Language
+
+In the survey it asked Data Scientist "what programming language do you use on a daily basis," and "what programming language would you recommend an aspiring data scientist to learn." We will be looking at the responses and seeing what are the top programming languages data scientist should learn.
+
+```{r}
+program_lang <- clean_data %>%
+  filter(Question == 'Q7' | Question == 'Q8') %>%
+  group_by(Response) %>%
+  tally() %>%
+  arrange(desc(n))
+```
+
+```{r}
+program_lang %>%
+  summarise(Response = Response, n = n, percent = n / sum(n))
+```
+
+
+```{r}
+program_lang %>%
+  ggplot(aes(reorder(Response, n, sum), n)) + geom_bar(stat='identity') + coord_flip() + xlab('Programming Language') + ylab('Count of Response')
+```
+
+We can see that Python is what Data Scientist would recommend by a long margin following by R. One interesting thing to look at is the trend overtime and if python is becoming the default standard in Data Science
+
+## Analysis 2: Relational Database
+
+Another skill that is used a lot by Data Scientist is management and querying of relational databases. It is important to be able to quickly and efficiently get the data that is stored in the server for models and analysis
+
+```{r}
+data_base <- clean_data %>%
+  filter(Question == 'Q29-A' | Question == 'Q30') %>%
+  group_by(Response) %>%
+  tally() %>%
+  arrange(desc(n))
+```
+
+```{r}
+data_base %>%
+  ggplot(aes(reorder(Response, n, sum), n)) + geom_bar(stat='identity') + coord_flip() + xlab('Relational Database') + ylab('Count of Response')
+```
+
+We can see that MySQL is the post popular followed by Postgres and Microsoft SQL. While a lot of SQL is very similar to one another they all have their own variations and functions which can make it difficult if someone is looking to switch to another SQL variant.
+
+## Analysis 3: Age and Gender
+
+Question 1 asked what is the respondent age. I would like so see what is the age distribution of Data Scientist since this is a very new field that has only recently emerged
+
+```{r}
+age <- clean_data %>%
+  filter(Question == 'Q1') %>%
+  group_by(Response) %>%
+  tally() %>%
+  arrange(desc(n))
+```
+
+```{r}
+age %>%
+  ggplot(aes(x=Response, y=n)) + geom_bar(stat='identity')
+```
+
+We can see that most Data Scientist are between 18 - 39 in this Kaggle Survey. I would like to know if this sample of data truly represents the population or if this data set has bias with only younger people participating in this survey.
+
+```{r}
+gender <- clean_data %>%
+  filter(Question == 'Q2') %>%
+  group_by(Response) %>%
+  tally() %>%
+  arrange(desc(n))
+```
+
+```{r}
+gender %>%
+  ggplot(aes(x=reorder(Response, n, sum), y=n)) + geom_bar(stat='identity')
+```
+
+```{r}
+gender %>%
+  ggplot(aes(x='', y=n, fill=Response)) + geom_bar(stat='identity', width=1) + coord_polar("y", start=0)
+```
+
+
+We can also see that Men are dominating the field of data science with only women making up less than 25% of data scientists.
+
+
+# Conclusion
+
+The field of data science is a rapidly growing field and the tools that data scientist are using are constantly evolving. We can see the growth in popularity of data scientist using python now instead of R with almost 80% of data scientist saying that they use or would recommend people to use python. On the other hand for relational databases we can see that MySQL is still the most popular relational database used. But for SQL based languages they are all very similar using the same base syntax. One thing that was not surprising though was that the age group for data scientist is very young with a majority of it being male. It would be interesting to see how this changes over time and if more females will join the field of data science
