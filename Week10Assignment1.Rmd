@@ -1,0 +1,384 @@
+---
+title: "Week10 Assignment"
+author: "Rathish Sasidharan"
+date: "4/16/2021"
+output: 
+  html_document:
+    theme: cerulean
+    toc: true
+    toc_float: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Overview
+
+In Text Mining with R, Chapter 2 looks at Sentiment Analysis.  In this assignment, you should start by getting the primary \ example code from chapter 2 working in an R Markdown document.  You should provide a citation to this base code. \ 
+You’re then  asked to extend the code in two ways: \
+
+Work with a different corpus of your choosing, and \
+Incorporate at least one additional sentiment lexicon (possibly from another R package that you’ve found through research). \
+As usual, please submit links to both an .Rmd file posted in your GitHub repository and to your code on rpubs.com.  \
+You make work on a small team on this assignment.
+
+```{r}
+# Load library
+
+library(stringr)
+library(tidytext)
+library(tidyverse)
+library(tidyr)
+library(ggplot2)
+library(dplyr)
+library(textdata)
+library(wordcloud)
+library(janeaustenr)
+
+library(reshape2)
+library(ggwordcloud)
+library(wordcloud)
+library(gutenbergr)
+
+```
+
+
+
+```{r}
+
+tidy_book <- function(author) {
+  author %>% 
+    unnest_tokens(word, text) %>% 
+    anti_join(stop_words)
+}
+
+
+facet_bar <- function(df, y, x, by, nrow = 2, ncol = 2, scales = "free") {
+  mapping <- aes(y = reorder_within({{ y }}, {{ x }}, {{ by }}), 
+                 x = {{ x }}, 
+                 fill = {{ by }})
+  
+  facet <- facet_wrap(vars({{ by }}), 
+                      nrow = nrow, 
+                      ncol = ncol,
+                      scales = scales) 
+  
+  ggplot(df, mapping = mapping) + 
+    geom_col(show.legend = FALSE) + 
+    scale_y_reordered() + 
+    facet + 
+    ylab("")
+} 
+```
+
+## 2.2 Sentiment analysis with inner join
+
+```{r}
+tidy_books <- austen_books() %>%
+  group_by(book) %>%
+  mutate(linenumber = row_number(),
+         chapter = cumsum(str_detect(text, regex("^chapter [\\divxlc]", 
+                                                 ignore_case = TRUE)))) %>%
+  ungroup() %>%
+  unnest_tokens(word, text)
+
+nrc_joy <- get_sentiments("nrc") %>%
+  filter(sentiment == "joy")
+
+tidy_books %>%
+  filter(book == "Emma") %>%
+  inner_join(nrc_joy) %>%
+  count(word, sort = TRUE)
+
+jane_austen_sentiment <- tidy_books %>%
+  inner_join(get_sentiments("bing")) %>%
+  mutate(index = linenumber %/% 80) %>% 
+  count(book, index, sentiment) %>%
+  pivot_wider(names_from = sentiment, values_from = n, values_fill = list(n = 0)) %>%
+  mutate(sentiment = positive - negative)
+
+jane_austen_sentiment
+
+
+ggplot(jane_austen_sentiment) + 
+  geom_col(aes(index, sentiment, fill = book), show.legend = F) + 
+  facet_wrap( ~ book, ncol = 2, scales = "free_x") 
+
+```
+
+## 2.3 Comparing 3 different dictionaries
+
+```{r}
+pride_prejudice <- tidy_books %>% 
+  filter(book == "Pride & Prejudice")
+
+pride_prejudice
+
+afinn <- pride_prejudice %>% 
+  inner_join(get_sentiments("afinn")) %>% 
+  mutate(index = linenumber %/% 80) %>% 
+  count(book, index, wt = value, name = "value") %>%
+  mutate(dict = "afinn") %>% 
+  select(index, value, dict)
+
+
+bing <- pride_prejudice %>% 
+  inner_join(get_sentiments("bing")) %>% 
+  mutate(index = linenumber %/% 80) %>% 
+  count(index, sentiment) %>% 
+  pivot_wider(names_from = sentiment, values_from = n, values_fill = list(n = 0)) %>% 
+  mutate(value = positive - negative,
+         dict = "bing") %>%  
+  select(index, value, dict)
+
+
+nrc <- pride_prejudice %>% 
+  inner_join(get_sentiments("nrc")) %>%
+  filter(sentiment %in% c("positive", "negative")) %>% 
+  mutate(index = linenumber %/% 80) %>% 
+  count(index, sentiment) %>% 
+  pivot_wider(names_from = sentiment, values_from = n, values_fill = list(n = 0)) %>% 
+  mutate(value = positive - negative,
+         dict = "nrc") %>% 
+  select(index, value, dict)
+
+bind_rows(afinn, bing, nrc) %>% 
+  ggplot() + 
+  geom_col(aes(index, value, fill = dict), show.legend = FALSE) + 
+  facet_wrap(~ dict, nrow = 3)
+
+
+get_sentiments("nrc") %>% 
+  filter(sentiment %in% c("positive", "negative")) %>% 
+  count(sentiment)
+
+get_sentiments("bing") %>% 
+  count(sentiment)
+
+```
+
+## 2.4 Most common positive and negative words
+
+```{r}
+bing_word_counts <- tidy_books %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(word, sentiment, sort = TRUE) %>%
+  ungroup()
+
+bing_word_counts
+
+custom_stop_words <- tibble(word = c("miss"), lexicon = c("custom")) %>% 
+  bind_rows(stop_words)
+
+bing_word_counts <- tidy_books %>%
+  inner_join(get_sentiments("bing")) %>% 
+  anti_join(custom_stop_words) %>%
+  group_by(sentiment) %>%
+  count(word, sentiment, sort = T) %>% 
+  ungroup()
+
+bing_word_counts %>%
+  group_by(sentiment) %>% 
+  top_n(10) %>%
+  ungroup()  %>% 
+  facet_bar(y = word, x = n, by = sentiment, nrow = 1) + 
+  labs(title = "Top 10 words of sentiment in Jane Austen's books") 
+
+```
+
+## 2.5 Wordclouds
+
+```{r}
+
+wordcloud_df <-tidy_books %>% 
+  anti_join(custom_stop_words) %>% 
+  inner_join(get_sentiments("bing")) %>% 
+  count(sentiment, word, sort = T) %>% 
+  top_n(200)
+
+wordcloud_df %>%
+  ggplot() + 
+  geom_text_wordcloud_area(aes(label = word, size = n)) +
+  scale_size_area(max_size = 15)
+
+wordcloud_df %>%
+  ggplot() + 
+  geom_text_wordcloud_area(aes(label = word, size = n), shape = "star") + 
+  scale_size_area(max_size = 15)
+
+tidy_books %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(word, sentiment, sort = TRUE) %>%
+  reshape2::acast(word ~ sentiment, value.var = "n", fill = 0) %>%
+  comparison.cloud(colors = c("gray20", "gray80"),
+                   max.words = 100)
+
+
+```
+
+## 2.6 Units other than words
+
+```{r}
+PandP_sentences <- tibble(text = prideprejudice) %>% 
+  unnest_tokens(sentence, text, token = "sentences")
+
+PandP_sentences
+
+tibble(text = prideprejudice) %>% 
+  mutate(text = iconv(text, to = "ASCII")) %>% 
+  unnest_tokens(sentence, text, token = "sentences")
+
+austen_chapters <- austen_books() %>%
+  group_by(book) %>%
+  unnest_tokens(chapter, text, token = "regex", 
+                pattern = "Chapter|CHAPTER [\\dIVXLC]") %>%
+  ungroup()
+
+austen_chapters
+
+tidy_books %>%
+  distinct(book, chapter)
+
+tidy_books %>% 
+  group_by(book, chapter) %>% 
+  summarize(str_c(word, collapse = " "))
+
+bing_negative <- get_sentiments("bing") %>% 
+  filter(sentiment == "negative")
+
+chapter_words <- tidy_books %>% 
+  count(book, chapter)
+
+tidy_books %>%
+  semi_join(bing_negative) %>%
+  count(book, chapter, name = "negative_words") %>% 
+  left_join(chapter_words) %>%
+  mutate(ratio = negative_words / n) %>%
+  filter(chapter != 0) %>%
+  group_by(book) %>% 
+  top_n(1) 
+
+```
+
+
+## Work with a different corpus
+
+```{r warning = FALSE}
+# filter a book  by author title language and copyright
+aesopMtdt <-gutenberg_metadata %>% 
+    filter(author == "Aesop",
+           title == "Aesop's Fables",language == "en",!grepl('Copyrighted', rights))
+
+# load the book using book id
+aesopBook <- gutenberg_download(aesopMtdt$gutenberg_author_id[1])
+
+#mutate to add author
+aesopBookMutated <- aesopBook %>% 
+  select(-gutenberg_id) %>% 
+  mutate(author = "Aesop")
+
+#aesopBookTidy<-tidy_book(aesopBookMutated)
+
+# identify the tokens and remove stop words
+aesopBookTidy<-aesopBookMutated %>% 
+    unnest_tokens(word, text) %>% 
+    anti_join(stop_words)
+ 
+
+
+```
+
+
+## sentiment lexicon loughran
+```{r warning = FALSE}
+#load the sentiment lexicon loughran
+get_sentiments("loughran")
+
+# join the sentiments with tokenized books with count for each sentiment  
+aesopBook_lexi <- aesopBookTidy %>%
+inner_join(get_sentiments("loughran")) %>%
+count(word, sentiment, sort = TRUE) %>%
+ungroup()
+
+```
+
+## Identify top 10 sentiments
+```{r warning = FALSE}
+aesopBook_lexi %>%
+group_by(sentiment) %>%
+top_n(10) %>%
+ungroup() %>%mutate(word = reorder(word, n)) 
+
+```
+
+
+## Identify positive and negative sentiments
+
+```{r warning = FALSE}
+#filter out positive and negative sentiments
+aesopBook_positive_negative<-aesopBook_lexi %>%filter(sentiment =='positive' | sentiment =='negative')
+
+aesopBook_nrc_lexi <- aesopBookTidy %>%
+inner_join(get_sentiments("nrc")) %>%
+count(word, sentiment, sort = TRUE) %>%
+ungroup()
+
+aesopBook_positive_negative_nrc<-aesopBook_nrc_lexi %>%filter(sentiment =='positive' | sentiment =='negative')
+
+
+```
+
+
+## Plot for positive and negative sentiments for loughran
+
+```{r warning = FALSE}
+
+aesopBook_positive_negative %>%
+     filter(n > 50) %>%
+     mutate(n = ifelse(sentiment == "negative", -n, n)) %>%
+     mutate(word = reorder(word, n)) %>%
+     ggplot(aes(word, n, fill = sentiment))+
+     geom_col() +
+     coord_flip() +
+     labs(y = "Sentiment Count")
+```
+
+## Plot for positive and negative sentiments for nrc
+
+```{r warning = FALSE}
+aesopBook_positive_negative_nrc %>%
+     filter(n > 100) %>%
+     mutate(n = ifelse(sentiment == "negative", -n, n)) %>%
+     mutate(word = reorder(word, n)) %>%
+     ggplot(aes(word, n, fill = sentiment))+
+     geom_col() +
+     coord_flip() +
+     labs(y = "Sentiment Count")
+```
+
+
+## word clout
+
+```{r warning = FALSE}
+# Word clouts
+aesopBookTidy %>%
+  count(word) %>%
+  with(wordcloud(word, n, max.words = 100))
+
+
+# sentiment analysis to tag different sentiments
+ aesopBookTidy %>%
+  inner_join(get_sentiments("loughran")) %>%
+  count(word, sentiment, sort = TRUE) %>%
+  acast(word ~ sentiment, value.var = "n", fill = 0) %>%
+  comparison.cloud(colors = c("gray20", "gray80"),
+                   max.words = 100)
+```
+
+
+## Conclusion
+
+Identified a different corpus and completed sentimental analysis using loughran lexicon.
+Also performed a sentimental comparison of the words extracted from the same book using loughran and nrc lexicons.
+It is clear that different lexicon dictionaries are having different set of sentimental words 
