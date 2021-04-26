@@ -1,0 +1,46 @@
+---
+title: "Recommender Systems"
+author: "Rathish Sasidharan"
+date: "4/24/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Recommender System
+
+For this assignment , I am considering Groupoun website and it's recommendation system.
+
+
+## Scenario Analysis
+
+Groupon has a large inventory of offers which varies from local massages, concert tickets etc.. 
+Groupon is using content based filtering system where it uses user location to filter out the deals near by and displaying it for the user.
+
+Targetted audiance
+
+The targetted audiance of this site are people who looks for deals and the local business who tries to gain more customer base and want to increase their revenues by offering deals on certain products and services.
+
+Key goals
+
+Groupon provide a platform for small business to attract the customers. 
+This platform help business sell and advertise new products and services and to give visibility to their business.
+
+Often I found that the user interfaces are not user friendly and I have to browse through hundreds of deals and
+filter out by applying specific criteria. 
+It is more cluttered and disorganized ,and the site doesn't allow custom preference settings.
+Also I felt that groupon is mostly business oriented and provide more importance to local business and support
+their business and pay less attention customer needs.
+
+There are many browser extensions are readily available in the market which find and automatically apply coupon code
+during check out (eg :Honey,Rakuten,Invisible Hand)  instead of user has to manually search and find deals
+
+## Area  of improvement
+
+The user interface should have recommendation section instead communicating the recommendation through emails. 
+Also user preference section should consider other factors like customer preference , price range etc apart from location information.
+
+
+.
