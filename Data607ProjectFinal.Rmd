@@ -1,0 +1,424 @@
+---
+title: "Data 607 Final Project"
+author: "Rathish Sasidharan"
+date: "5/18/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE,echo = TRUE,message = FALSE)
+```
+
+## Overview
+
+As part of this project , I will analyzing the Netflix TV shows and movie data and will try to answer the below research questions. The dataset consists of TV shows and movies available on Netflix as of 2021. The dataset is collected from Flixable which is a third-party Netflix search engine.
+
+
+### Research question 
+
+As part of this project , we perform the following analysis on the Netflix content (movies and TV shows) 
+
+1. Analyze the percentage of TV Shows and Movies in Netflix?
+2. Analyze the trends of TV Shows and Movies over the years? 
+3. Find the top 3 countries with most number of Movies and TV Shows?
+4. What is the distribution of “duration of movies” and the “seasons in TV Shows” ?  
+   Analyze whether the distributions are normal.      
+5. Analyze is there any relationship between the Release Year and Duration of Movies?  
+   Perform a regression analysis.  
+6. Analyze is there a relationship between the Release Year and the number of seasons?  
+   Perform a regression analysis.  
+7. Is there any relationship between the Country and Duration of Movies ?  
+   Perform a variance analysis (AOV)  
+8. Is there a relationship between the Genre and Duration of Movies ?  
+   Perform a variance analysis (AOV)?  
+
+## About the Data 
+
+There are 7787 observations in the dataset which is either a movie or a TV show  and the below 12  variables describes 
+the data:
+
+show_id - Unique ID for Movie / TV Show  
+type - Identifier - A Movie or TV Show  
+title - Title of the Movie / TV Show  
+director - Director of the Movie  
+cast - Actors involved in the movie / show  
+country - Country where the movie / show was produced  
+date_added - Date it was added on Netflix  
+release_year - Actual Release year of the move / show  
+rating - TV Rating of the movie / show  
+duration - Total Duration - in minutes or number of seasons  
+listed_in - Genres  
+description - The summary description  
+
+
+### Type of study 
+
+This is an observational data
+
+
+### Data Source 
+
+The data is collected from below [website](https://www.kaggle.com/shivamb/netflix-shows)
+
+
+
+### Dependent Variable and Independent Variable
+
+Perform a regression analysis between the year and movie duration , also between the number seasons of tv shows over the year.
+Movie year is independent variable and duration is dependent variable
+
+## Relevant summary statistics 
+
+
+### 1. Load Required Packages
+
+```{r warning = FALSE,message=FALSE}
+library(tidyverse)
+library(dplyr)
+library(nortest)
+```
+
+
+### 2. Data Preparation and Clean up
+
+
+```{r}
+data <- read.csv("https://raw.githubusercontent.com/rathish-ps/Data607-Assignment/main/netflix_titles.csv")
+
+data <- data %>%
+  mutate(country = replace(country, country ==  "", NA ))
+
+data$country[data$country==""]<-NA
+data_without_countryNA <- data %>% drop_na()
+
+data$director <- iconv(data$director, 'utf-8', 'ASCII//TRANSLIT', sub='')
+data$title <- iconv(data$title, 'utf-8', 'ASCII//TRANSLIT', sub='')
+data$cast <- iconv(data$cast, 'utf-8', 'ASCII//TRANSLIT', sub='')
+data$description <- iconv(data$description, 'utf-8', 'ASCII//TRANSLIT', sub='')
+#data$date_added <- parse_date_time(data$date_added, orders = "mdy")
+data$date_added <-as.Date(strptime(data$date_added, format = "%d-%b-%y"))
+```
+
+### 3. Data Analysis
+
+
+
+#### 3.1 Analyse the percentage of TV Shows and Movies in Netflix?
+
+```{r}
+
+data1<- data %>% 
+  group_by(type) %>% 
+  summarise(Total = n()) %>%
+  mutate( Percentage =Total/sum(Total)*100 )
+
+
+ggplot(data=data1)+
+  geom_bar(aes(x="", y=Total, fill=type), stat="identity", width = 1)+
+  coord_polar("y", start=0)+
+  ggtitle("TV Shows vs Movies") +
+  theme_void()+
+  geom_text(aes(x=1, y = Total, label=sprintf("%0.1f%s", round(Percentage, digits = 3),"%"))) 
+
+
+```
+
+
+From the Graph we could see that 69,1% of the content from Netflix are movies and the 30.9% are TV Shows
+
+
+#### 3.2 Analyse the trends of TV Shows and Movies over the years?
+
+```{r}
+
+data %>% filter(as.numeric(format(date_added,'%Y'))<2021) %>%
+    group_by(year=as.numeric(format(date_added,'%Y')), type) %>%    
+    count()%>%
+  ggplot() + geom_line(aes(x = year, y = n, group = type, color = type)) +
+  ggtitle("Movies and TV Shows added per year") +
+  labs(x = "Year", y = "Count") 
+
+
+```
+
+From the Graph we could see that from 2015 on wards Netflix started adding more TV shows and Movies.  
+
+#### 3.3 Top 3 countries with most number of Movies and TV Shows
+
+```{r}
+
+data_show<-data%>% filter(type =='TV Show')
+
+data_show1<-data_show%>%mutate(durationNum =as.numeric(strsplit(duration,"Seasons")))
+data_show2<-data_show1%>% filter(is.na(durationNum))%>%mutate(durationNum =as.numeric(strsplit(duration,"Season")))
+
+data_show1<-data_show1%>%filter(!is.na(durationNum))
+
+data_show<-rbind(data_show1,data_show2)
+
+# find the tv shows by country
+
+data4 <- data_show %>%filter(!is.na(country)) %>%
+mutate(country = strsplit(as.character(country), ", ")) %>%
+unnest(country) %>% 
+group_by(country,durationNum)
+ 
+summary4 <- data4  %>%
+  group_by(country) %>% 
+  summarise(Total = n())
+ 
+ summary4<-summary4[order(summary4$Total, decreasing = TRUE), ]
+ summary4<- summary4%>%top_n(3)
+  # we are considering only top 3 countries by movie
+  countriesTvShow <-summary4$country
+  #countriesTvShow
+  
+
+  
+  summaryTopTvShow <- data4  %>%filter(!is.na(date_added))%>%mutate( year_added =as.numeric(format(date_added,'%Y') ))%>%
+  group_by(country,year_added) %>%  summarise(Total = n())
+  
+ summaryTopTvShow<- summaryTopTvShow %>%filter(country %in% countriesTvShow)
+  
+ 
+ summaryTopTvShow %>% filter(year_added < 2021) %>%
+   ggplot() + geom_line(aes(x = year_added, y = Total, group = country, color = country)) +
+  ggtitle("TV Shows distribution") +
+  labs(x = "Year", y = "Count") 
+  
+# for movies
+  
+data_movie<-data%>% filter(type =='Movie')
+
+data_movie<-data_movie%>%mutate(durationNum =as.numeric(strsplit(duration,"min")))
+  data2 <- data_movie %>%
+  mutate(country = strsplit(as.character(country), ", ")) %>%
+  unnest(country) %>% 
+  group_by(country,durationNum)
+ 
+ summary2 <- data2 %>% filter(!is.na(country)) %>%
+  group_by(country) %>% 
+  summarise(Total = n())
+ 
+  summary2<-summary2[order(summary2$Total, decreasing = TRUE), ]
+  summary2<- summary2%>%top_n(10)
+  summary6<- summary2%>%top_n(3)
+  countriesMovies <-summary6$country
+ # countriesMovies
+  
+  
+   summaryTopMoies <- data_movie %>%filter(!is.na(date_added))%>%mutate( year_added =as.numeric(format(date_added,'%Y') ))%>%
+  group_by(country,year_added) %>%  summarise(Total = n())
+   
+ summaryTopMoies<- summaryTopMoies %>%filter(country %in% countriesMovies)
+ 
+  summaryTopMoies %>% filter(year_added < 2021) %>%
+   ggplot() + geom_line(aes(x = year_added, y = Total, group = country, color = country)) +
+  ggtitle("Movie distribution") +
+  labs(x = "Year", y = "Count") 
+  
+```
+
+
+
+#### 3.4 What is the distribution of "duration of movies" and the "seasons in TV Shows" ?
+
+**Analyze the duration of movies **
+
+```{r}
+
+data_movie<-data%>% filter(type =='Movie')
+
+data_movie<-data_movie%>%mutate(durationNum =as.numeric(strsplit(duration,"min")))
+
+ggplot(data_movie) + 
+  geom_histogram(binwidth = 10, aes(x = durationNum)) +
+  labs(title = 'Durartion distribution of Movies')+
+  labs(x = "Duration", y = "Movies")
+  
+#check whether it follows a normal distribution? 
+ad.test(data_movie$durationNum)
+    
+```
+
+
+Since the p-value < 0.05 means the time duration of movies are not following a normal distribution
+
+**Analyze the number of seasons in TV Shows  **
+```{r}
+
+data_show<-data%>% filter(type =='TV Show')
+
+data_show1<-data_show%>%mutate(durationNum =as.numeric(strsplit(duration,"Seasons")))
+data_show2<-data_show1%>% filter(is.na(durationNum))%>%mutate(durationNum =as.numeric(strsplit(duration,"Season")))
+
+data_show1<-data_show1%>%filter(!is.na(durationNum))
+
+data_show<-rbind(data_show1,data_show2)
+
+ggplot(data_show) + 
+  geom_histogram(binwidth = 1, aes(x = durationNum)) +
+  labs(title = 'Distribution of TV Shows Seasons')+
+  labs(x = "# of seasons", y = "Count") +
+  theme_minimal()
+
+ad.test(data_show$durationNum)
+```
+
+From the histogram it is clear most of the TV shows has only one season and the distribution is right skewed.
+Also from the p-value (2.2e-16 ) it is clear the number of seasons doesn't follow a normal distribution.
+
+#### 3.5 Analyse is there any relationship between the Release Year and Duration of Movies? 
+
+
+```{r}
+data_movie %>% 
+ggplot( aes(x = release_year, 
+           y = durationNum)) +
+  geom_point() + 
+  geom_smooth(method = "lm")+
+  ggtitle("Release Year VS Movie Duration") +
+  labs(x = "Release Year", y = "Duration")
+
+cor.test(data_movie$release_year,data_movie$durationNum)
+```
+
+Based on that correlation coefficient, linear relationship between the two variables is low.
+
+```{r}
+lm1 <- lm(release_year~ durationNum, data =data_movie)
+#summary(lm1)$r.squared
+summary(lm1)
+```
+
+From the analysis it is clear that the correlation coefficient(-0.20) is low and the R-square is 4.1 % meaning there is
+no linear relation exist between release year and movie duration.
+
+#### 3.6 Analyse is there a relationship between the Release Year and the number of seasons?
+
+```{r }
+
+data_show %>% 
+ggplot( aes(x = release_year, 
+           y = durationNum)) +
+  geom_point() +
+  geom_smooth(method = "lm")+
+                
+  ggtitle("Release Year Vs No of Seasons") +
+  labs(x = "Release Year", y = "#Seasons")
+
+cor(data_show$release_year,data_show$durationNum)
+
+```
+
+Based on that correlation coefficient, linear relationship between the two variables is low (-0.09)
+```{r}
+lm1 <- lm(release_year~ durationNum, data =data_show)
+summary(lm1)
+```
+
+
+From the analysis it is clear that the correlation coefficient(-0.09) is low and the R-square is .8 % meaning there is
+no linear relation exist between release year and number of seasons.
+
+
+
+#### 3.7 Is there any relationship between the Country and Duration of Movies? 
+
+```{r}
+
+ data2 <- data_movie %>%
+  mutate(country = strsplit(as.character(country), ", ")) %>%
+  unnest(country) %>% 
+  group_by(country,durationNum)
+ 
+ summary2 <- data2 %>% filter(!is.na(country)) %>%
+  group_by(country) %>% 
+  summarise(Total = n())
+ 
+  summary2<-summary2[order(summary2$Total, decreasing = TRUE), ]
+  summary2<- summary2%>%top_n(10)
+  
+  # we are considering only top 10 countries by movie
+  countries <-summary2$country
+    
+  data2<- data_movie %>%
+filter(country %in% countries)
+
+data2 %>%
+  mutate(country = reorder(country, durationNum, FUN = mean)) %>%   
+  ggplot(aes(country, durationNum, fill = country)) +    
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  ggtitle("Country VS Movie Duration") +
+  labs(x = "Country", y = "Movie Duration")
+
+data2 %>%
+filter(country %in% countries)  %>%
+group_by(country) %>%
+  summarise(
+    size = n(),
+    mean = mean(durationNum, na.rm = TRUE),
+    sd = sd(durationNum, na.rm = TRUE)
+  )
+
+# Compute the analysis of variance
+anova_country <- aov(durationNum ~ country, data = data2)
+# Summary of the analysis
+summary(anova_country)
+
+```
+
+Hypothesis: the time duration of movies are the same among the countries. \
+The P-Value ( 2e-16) is very small (< 0.05) and therefore we reject the null hypothesis. \
+It means that the difference of time  duration across the countries selected is statistically significant.
+
+
+#### 3.8 Is there a relationship between the Genre and Duration of Movies? 
+
+```{r}
+
+data3 <- data_movie %>%
+  mutate(listed_in = strsplit(as.character(listed_in), ", ")) %>%
+  unnest(listed_in) %>% 
+  group_by(listed_in,durationNum) 
+
+data3 %>%
+  mutate(listed_in = reorder(listed_in, durationNum, FUN = mean)) %>%
+  ggplot(aes(listed_in, durationNum, fill = listed_in)) +   
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  ggtitle("Genre VS Movie Duration") +
+  labs(x = "Genre", y = "Movie Duration")
+
+data3 %>%
+group_by(listed_in) %>%
+  summarise(
+    size = n(),
+    mean = mean(durationNum, na.rm = TRUE),
+    sd = sd(durationNum, na.rm = TRUE)
+  )
+
+# Compute the analysis of variance
+anova_genre <- aov(durationNum ~ listed_in, data = data3)
+# Summary of the analysis
+summary(anova_genre)
+
+
+```
+
+Hypothesis: the time duration of the movies are the same among the genres. \ 
+
+The P-Value(2e-16) is very small (< 0.05) and therefore we reject the null hypothesis. It means that at least two of the \  means  are different, the difference in movie duration between the genres is statistically significant.
+
+## 4 Summary
+
+Analyzed the Netflix content data using different plots like scatter plots, line chart, boxplot and bar charts.
+We found that 69.1% of the content from Netflix are movies and the 30.9% are TV Shows
+
+The top 3 countries creating TV Show content for Netflix are United States, United Kingdom and Japan and top 3 countries creating TV Movie content are United States, India and United Kingdom. 
+
+There is no linear relationship between time duration in the Movies/ No of seasons in TV Shows and the release year.
+From our analysis We noticed that correlation coefficient and R-square values are low.
+
+From the variance analysis (AOV),the difference of time duration of movies across the countries is statistically significant. The same happens with the genres
